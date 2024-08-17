@@ -11,26 +11,32 @@
 static int led_state = 0;
 
 static void debug_print(const char* msg){
-    UINT send_len = strlen(msg);
+    UINT send_len = strlen(msg);        // strlen(msg)で引数として渡された文字列の長さを計算しsend_lenに格納
+    
+    // puts_com 関数を呼び出して、メッセージを送信
     puts_com(DID_USART3, msg, &send_len, TMO_FEVR);
+      // DID_USART3     : 使用するUSARTデバイスのIDを指定
+      // msg            : 送信するメッセージ（文字列）
+      // &send_len      : 文字列の長さへのポインタ
+      // TMO_FEVR       : タイムアウト設定（ここでは永久に待機）
 }
 
 static void set_led(int state){
-    if (state){
-        GPIOA->BSRR = (1 << (8 + 16)); // R19 (PA8) ON (Set low)
+    // int state  : LEDの状態（オンかオフか）を指定する整数型の引数
+  
+    if (state){         // state が0以外（真）の場合、LEDオン
+        GPIOA->BSRR = (1 << (8 + 16)); // R19 (PA8) ON (Set low)　24ビット目を1にセット
         debug_print("LED set to ON\r\n");
-    }else{
-        GPIOA->BSRR = (1 << 8); // R19 (PA8) OFF (Set high)
+    }else{             // state が0（偽）の場合、LEDオフ
+        GPIOA->BSRR = (1 << 8); // R19 (PA8) OFF (Set high)　8ビット目に1をセット
         debug_print("LED set to OFF\r\n");
     }
-    led_state = state;
+    led_state = state;  // グローバル変数 led_state に現在のLEDの状態を保存
 }
 
 void com_tsk1(VP_INT exinf){
     static VB mojimoji[MOJI];
     UINT len;   // len という unsigned int 型の変数を宣言
-
-    // debug_print("Initializing...\r\n"); // 初期化プロセスの開始を示すデバッグメッセージ
 
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;        // RCCレジスタを操作してGPIOAのクロックを有効にする
     debug_print("GPIOA clock enabled\r\n");     // GPIOAのクロックが有効になったことを示すデバッグメッセージ
@@ -39,28 +45,26 @@ void com_tsk1(VP_INT exinf){
     GPIOA->MODER &= ~(3U << 16);
     GPIOA->MODER |= (1U << 16);
 
-    GPIOA->OTYPER &= ~(1U << 8);        // GPIOA の OTYPEを設定し、PA8 をプッシュプル出力モードに設定
-    GPIOA->OSPEEDR |= (3U << 16);       // GPIOAのOSPEEDERを設定し、PA8 の出力速度を最高速度に設定
-    GPIOA->PUPDR &= ~(3U << 16);
+    GPIOA->OTYPER &= ~(1U << 8);        // GPIOAのOTYPEを設定し、PA8をプッシュプル出力モードに設定
+    GPIOA->OSPEEDR |= (3U << 16);       // GPIOAのOSPEEDERを設定し、PA8の出力速度を最高速度に設定
+    GPIOA->PUPDR &= ~(3U << 16);        // GPIOAのPUPDRを設定し、PA8のプルアップ/プルダウン抵抗を無効
     debug_print("PA8 configured as output\r\n");
 
-    set_led(0);
+    set_led(0); // 初期状態：消灯
 
-    T_COM_SMOD debugCommSetting = {38400, BLEN8, PAR_NONE, SBIT1, FLW_NONE};
-    ini_com(DID_USART3, &debugCommSetting);
-    ctr_com(DID_USART3, STA_COM, 0);
-    debug_print("USART3 initialized\r\n");
+    T_COM_SMOD debugCommSetting = {38400, BLEN8, PAR_NONE, SBIT1, FLW_NONE};    // USART3の通信設定を定義
+    ini_com(DID_USART3, &debugCommSetting);     // 上記の設定を使用してUSART3を初期化
+    ctr_com(DID_USART3, STA_COM, 0);    // USART3の通信を開始
+    debug_print("USART3 initialized\r\n");      // USART3の初期化が完了したことを示すデバッグメッセージ
 
-    debug_print("Initialization complete\r\n");
-
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 5; i++) {       // LED を5回点滅(テスト)
         set_led(1);
         dly_tsk(500);
         set_led(0);
         dly_tsk(500);
     }
-    debug_print("Initial LED test complete\r\n");
-    debug_print("Waiting for commands...\r\n");
+    
+    debug_print("Waiting for commands...\r\n"); // コマンド入力待ちの状態なったことを示すデバッグメッセージ
 
     for(;;){
         len = MOJI;     // 256をlenに代入
@@ -91,11 +95,12 @@ void com_tsk1(VP_INT exinf){
                     debug_print("LED is already OFF\r\n");
                 }else{          // LEDがONの場合
                     set_led(0);         // LEDを消灯させLED set to OFFと表示
+                    debug_print("LED set to OFF\r\n");
                 }
             }else{      // 受信したコマンドが "#$0XC01"と"#$0XC00"以外の場合
                 debug_print("Error: Invalid command\r\n");
             }
-            debug_print("Waiting for next command...\r\n");
+            debug_print("Waiting for next command...\r\n");     // コマンド入力待ちの状態なったことを示すデバッグメッセージ
         }
     }
 }
